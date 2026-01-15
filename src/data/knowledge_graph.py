@@ -48,11 +48,12 @@ def fetch_collectri_edges(
         import decoupler as dc
         
         # Get CollecTRI network (comprehensive TF-target database)
-        collectri = dc.get_collectri(organism=organism)
+        # API changed: dc.op.collectri() instead of dc.get_collectri()
+        collectri = dc.op.collectri(organism=organism)
         logger.info(f"CollecTRI: {len(collectri)} interactions")
         
         # Also get DoRothEA for additional coverage
-        dorothea = dc.get_dorothea(organism=organism)
+        dorothea = dc.op.dorothea(organism=organism)
         # Filter by confidence level
         if "confidence" in dorothea.columns:
             dorothea = dorothea[dorothea["confidence"].isin(confidence_levels)]
@@ -137,10 +138,18 @@ def fetch_string_edges_api(
                     fields = line.split("\t")
                     if len(fields) >= 6:
                         interaction = dict(zip(header, fields))
+                        # Score can be 0-1 float or 0-1000 int depending on API version
+                        score_raw = interaction.get("score", fields[5])
+                        try:
+                            score_val = float(score_raw)
+                            # Normalize to 0-1000 scale if needed
+                            combined_score = int(score_val * 1000) if score_val <= 1 else int(score_val)
+                        except ValueError:
+                            combined_score = 0
                         all_interactions.append({
                             "gene1": interaction.get("preferredName_A", fields[2]),
                             "gene2": interaction.get("preferredName_B", fields[3]),
-                            "combined_score": int(interaction.get("score", fields[5])),
+                            "combined_score": combined_score,
                         })
         except requests.RequestException as e:
             logger.warning(f"STRING API error for batch {i}: {e}")
@@ -434,7 +443,9 @@ def build_knowledge_graph(
     
     # Save graph
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    nx.write_gpickle(G, output_path)
+    import pickle
+    with open(output_path, 'wb') as f:
+        pickle.dump(G, f, protocol=pickle.HIGHEST_PROTOCOL)
     logger.info(f"Saved graph to {output_path}")
     
     return G
@@ -442,7 +453,9 @@ def build_knowledge_graph(
 
 def load_knowledge_graph(graph_path: str | Path) -> nx.DiGraph:
     """Load a saved knowledge graph."""
-    return nx.read_gpickle(graph_path)
+    import pickle
+    with open(graph_path, 'rb') as f:
+        return pickle.load(f)
 
 
 def convert_to_pyg(

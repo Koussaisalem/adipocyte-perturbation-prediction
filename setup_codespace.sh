@@ -19,7 +19,7 @@ pip install -e ".[dev,notebooks]" --quiet
 # Check data files
 echo ""
 echo "📁 Checking data files..."
-DATA_DIR="data/raw"
+DATA_DIR="data/raw/Challenge"
 
 files=(
     "obesity_challenge_1.h5ad"
@@ -52,7 +52,7 @@ fi
 # Create combined gene list for KG building
 echo ""
 echo "🧬 Creating combined gene list..."
-cat data/raw/predict_perturbations.txt data/raw/gene_to_predict.txt | sort -u > data/processed/all_genes.txt
+cat data/raw/Challenge/predict_perturbations.txt data/raw/Challenge/gene_to_predict.txt | sort -u > data/processed/all_genes.txt
 echo "  ✅ Created data/processed/all_genes.txt ($(wc -l < data/processed/all_genes.txt) genes)"
 
 echo ""
@@ -62,7 +62,7 @@ echo "1. Build knowledge graph:"
 echo "   python scripts/build_kg.py --gene-list data/processed/all_genes.txt"
 echo ""
 echo "2. Extract embeddings (requires GPU):"
-echo "   python scripts/extract_embeddings.py --h5ad-file data/raw/obesity_challenge_1.h5ad"
+echo "   python scripts/extract_embeddings.py --h5ad-file data/raw/Challenge/obesity_challenge_1.h5ad"
 echo ""
 echo "3. Start training:"
 echo "   python scripts/train.py"
