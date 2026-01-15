@@ -1,0 +1,66 @@
+# Data files (too large for git)
+data/raw/
+data/processed/*.h5ad
+data/processed/*.npy
+data/processed/*.pt
+data/kg/*.pt
+*.h5ad
+*.h5
+*.zip
+
+# Checkpoints and models
+checkpoints/
+*.ckpt
+*.pth
+wandb/
+mlruns/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# OS
+.DS_Store
+Thumbs.db
+*:Zone.Identifier
+
+# Logs
+logs/
+*.log
+
+# Experiments cache
+experiments/*/outputs/
