@@ -34,7 +34,20 @@ submissions/           # Generated competition submissions
 ## Environment and Requirements
 - Python 3.10+, CUDA-capable GPU recommended for embeddings and training.
 - Disk: at least 50–100 GB free for h5ad, model weights, intermediates.
-- Install: `pip install -e ".[dev,notebooks]"` from the repo root (prefer a virtualenv or conda env).
+- Install (core runtime): `pip install -r requirements.txt`
+- Install (dev + notebooks): `pip install -e ".[dev,notebooks]"`
+
+### PyTorch and Torch Geometric
+Install the correct PyTorch build for your system before running the pipeline:
+- **CPU**: `pip install --index-url https://download.pytorch.org/whl/cpu torch`
+- **CUDA**: follow https://pytorch.org/get-started/locally/ and then `pip install torch-geometric`
+
+### Pretrained Models
+- **Geneformer** (required for real embeddings):
+  - Package: `pip install git+https://huggingface.co/ctheodoris/Geneformer.git`
+  - Model weights are downloaded automatically to `models/geneformer/` on first run of
+    [scripts/extract_embeddings.py](scripts/extract_embeddings.py).
+  - If you want to skip this step, use `--random` in the embeddings script for placeholder embeddings.
 
 ## Data Preparation
 1) Place challenge files in `data/raw/Challenge/`:
