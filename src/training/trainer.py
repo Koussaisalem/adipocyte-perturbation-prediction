@@ -14,6 +14,7 @@ from typing import Optional
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -81,6 +82,7 @@ class Trainer:
         scheduler: Optional[object] = None,
         callbacks: Optional[list] = None,
         logger_obj: Optional[object] = None,
+        perturbation_embeddings: Optional[dict] = None,
     ):
         """
         Initialize trainer.
@@ -102,6 +104,12 @@ class Trainer:
         self.val_loader = val_loader
         self.config = config
         self.logger_obj = logger_obj
+        self.perturbation_embeddings = perturbation_embeddings or {}
+        self.perturbation_dim = getattr(
+            getattr(getattr(model, "flow_decoder", None), "velocity_model", None),
+            "perturbation_dim",
+            None,
+        )
         
         # Initialize optimizer
         if optimizer is None:
@@ -115,6 +123,9 @@ class Trainer:
             self.optimizer = optimizer
         
         self.scheduler = scheduler
+        if self.scheduler is not None and getattr(self.scheduler, "optimizer", None) is None:
+            # Attach optimizer lazily if scheduler was constructed before optimizer
+            self.scheduler.optimizer = self.optimizer
         self.callbacks = callbacks or []
         
         # Training state
@@ -157,8 +168,25 @@ class Trainer:
             if 'z_p' in batch:
                 z_p = batch['z_p'].to(self.config.device)
             else:
-                # This is a placeholder - implement proper perturbation encoding
-                raise NotImplementedError("Perturbation encoding not implemented in batch")
+                # Fallback: build embeddings from provided dictionary
+                if not self.perturbation_embeddings:
+                    raise NotImplementedError("Perturbation encoding not implemented in batch")
+                embeds = []
+                for pert_name in batch['perturbation']:
+                    vec = self.perturbation_embeddings.get(pert_name)
+                    if vec is None:
+                        vec = torch.zeros(self.perturbation_dim, device=self.config.device)
+                    else:
+                        vec = vec.to(self.config.device)
+                        # Ensure correct shape
+                        if vec.dim() > 1:
+                            vec = vec.flatten()
+                        if vec.shape[0] > self.perturbation_dim:
+                            vec = vec[:self.perturbation_dim]
+                        elif vec.shape[0] < self.perturbation_dim:
+                            vec = F.pad(vec, (0, self.perturbation_dim - vec.shape[0]))
+                    embeds.append(vec)
+                z_p = torch.stack(embeds)
             
             # Predict velocity
             pred_velocity = self.model.predict_velocity(xt, t, z_p)
@@ -253,8 +281,12 @@ class Trainer:
             n_batches += 1
         
         # Average losses
-        for key in val_losses:
-            val_losses[key] /= n_batches
+            if n_batches == 0:
+                logger.warning("Validation loader is empty; skipping validation metrics.")
+                return {k: 0.0 for k in val_losses}
+
+            for key in val_losses:
+                val_losses[key] /= n_batches
         
         return val_losses
     

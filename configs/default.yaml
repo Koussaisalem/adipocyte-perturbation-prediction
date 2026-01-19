@@ -21,9 +21,11 @@ data:
   # Cell program assignment
   program_score_method: mean_zscore  # mean_zscore, mean_raw, ssgsea
   min_cells_per_perturbation: 50
+  # Optional cell downsampling to avoid OOM on small machines
+  max_cells: 6000
   
   # PCA for flow matching
-  pca_components: 500
+  pca_components: 300
   pca_fit_on: NC  # Fit PCA on NC cells only
   
   # Train/val split
@@ -80,6 +82,8 @@ flow_matching:
   hidden_dims: [1024, 512, 512]
   time_embedding_dim: 64
   activation: silu
+  # PCA dimension used for flow input (matches data.pca_components)
+  pca_components: 300
   
   # ODE integration
   ode_solver: dopri5  # dopri5, euler, rk4

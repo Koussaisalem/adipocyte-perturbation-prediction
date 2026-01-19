@@ -83,6 +83,9 @@ def main():
     adata = load_h5ad_data(
         raw_dir / config["paths"]["h5ad_file"],
         raw_dir / config["paths"]["gene_to_predict"],
+        max_cells=config["data"].get("max_cells"),
+        seed=config["training"].get("seed", 42),
+        keep_perturbations=config["data"].get("val_genes", []),
     )
     
     # Load signature genes
@@ -169,21 +172,28 @@ def main():
     # Step 6: Create trainer
     logger.info("Creating trainer...")
     
+    # Resolve device string (torch doesn't accept "auto")
+    accel = config["hardware"].get("accelerator", "auto")
+    if accel == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    else:
+        device = accel
+
     # Training config
     train_config = TrainingConfig(
-        lr=config["training"]["lr"],
-        weight_decay=config["training"]["weight_decay"],
-        epochs=config["training"]["epochs"],
-        batch_size=config["training"]["batch_size"],
-        gradient_clip=config["training"]["gradient_clip"],
-        val_frequency=config["training"]["val_frequency"],
+        lr=float(config["training"]["lr"]),
+        weight_decay=float(config["training"]["weight_decay"]),
+        epochs=int(config["training"]["epochs"]),
+        batch_size=int(config["training"]["batch_size"]),
+        gradient_clip=float(config["training"]["gradient_clip"]),
+        val_frequency=int(config["training"]["val_frequency"]),
         checkpoint_dir=config["paths"]["checkpoint_dir"],
-        save_top_k=config["training"]["save_top_k"],
+        save_top_k=int(config["training"]["save_top_k"]),
         monitor=config["training"]["monitor"],
         mode=config["training"]["mode"],
-        early_stopping=config["training"]["early_stopping"],
-        patience=config["training"]["patience"],
-        device=config["hardware"]["accelerator"],
+        early_stopping=bool(config["training"]["early_stopping"]),
+        patience=int(config["training"]["patience"]),
+        device=device,
         seed=seed,
     )
     
@@ -225,6 +235,7 @@ def main():
         config=train_config,
         scheduler=scheduler,
         callbacks=callbacks,
+        perturbation_embeddings=gene_embeddings,
     )
     
     # Resume from checkpoint if specified

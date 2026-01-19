@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 def load_h5ad_data(
     h5ad_path: str | Path,
     gene_list_path: Optional[str | Path] = None,
+    max_cells: Optional[int] = None,
+    seed: int = 42,
+    keep_perturbations: Optional[list[str]] = None,
 ) -> ad.AnnData:
     """
     Load the challenge h5ad file.
@@ -53,6 +56,32 @@ def load_h5ad_data(
     logger.info(f"Found {len(perturbations)} unique perturbations ({n_perturbed} cells)")
     logger.info(f"Found {n_nc} negative control (NC) cells")
     
+    # Optionally downsample cells to reduce memory
+    if max_cells is not None and adata.n_obs > max_cells:
+        logger.info(f"Downsampling cells: {adata.n_obs} -> {max_cells} (seed={seed})")
+        rng = np.random.default_rng(seed)
+
+        if "gene" in adata.obs.columns:
+            labels = adata.obs["gene"].values
+            keep_labels = set(keep_perturbations or [])
+            keep_mask = np.isin(labels, list(keep_labels))
+
+            # Always keep all requested perturbations; if they exceed budget, sample within
+            keep_indices = np.where(keep_mask)[0]
+            if len(keep_indices) > max_cells:
+                keep_indices = rng.choice(keep_indices, max_cells, replace=False)
+                downsample_indices = keep_indices
+            else:
+                remaining = max_cells - len(keep_indices)
+                other_indices = np.where(~keep_mask)[0]
+                sampled_others = rng.choice(other_indices, remaining, replace=False)
+                downsample_indices = np.concatenate([keep_indices, sampled_others])
+            rng.shuffle(downsample_indices)
+            adata = adata[downsample_indices, :].copy()
+        else:
+            keep_idx = rng.choice(adata.n_obs, max_cells, replace=False)
+            adata = adata[keep_idx, :].copy()
+
     # Optionally subset to required genes
     if gene_list_path is not None:
         gene_list_path = Path(gene_list_path)
