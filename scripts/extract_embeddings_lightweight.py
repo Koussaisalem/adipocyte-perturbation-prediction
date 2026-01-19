@@ -10,10 +10,18 @@ from pathlib import Path
 import sys
 
 import numpy as np
-import scanpy as sc
 import torch
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+
+# Use anndata directly instead of scanpy to avoid dependency hell
+try:
+    import anndata
+except ImportError:
+    print("Installing anndata...")
+    import subprocess
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "anndata", "-q"])
+    import anndata
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -154,7 +162,7 @@ def main():
     
     # Load data
     logger.info(f"Loading {args.h5ad_file}...")
-    adata = sc.read_h5ad(args.h5ad_file)
+    adata = anndata.read_h5ad(args.h5ad_file)
     logger.info(f"Loaded: {adata.n_obs} cells x {adata.n_vars} genes")
     
     # Sample cells if requested
