@@ -16,6 +16,15 @@ import torch
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Import centralized paths
+try:
+    from src.utils.paths import PROCESSED_DIR, GENEFORMER_MODEL_DIR, RAW_DATA_DIR
+except ImportError:
+    # Fallback if paths module not available
+    PROCESSED_DIR = Path("data/processed")
+    GENEFORMER_MODEL_DIR = Path("models/geneformer_full")
+    RAW_DATA_DIR = Path("data/raw/Challenge")
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -37,7 +46,7 @@ def download_model(model_dir: str | None) -> str:
     cache_dir = snapshot_download(
         repo_id="ctheodoris/Geneformer",
         allow_patterns=["gf-*/**", "*.pkl"],
-        local_dir="models/geneformer",
+        local_dir=str(GENEFORMER_MODEL_DIR),
     )
     candidate = Path(cache_dir) / "gf-12L-104M-i4096"
     final_dir = candidate if candidate.exists() else Path(cache_dir)
@@ -58,7 +67,7 @@ def main():
     parser = argparse.ArgumentParser(description="Extract Geneformer gene embeddings with chunking")
     parser.add_argument("--h5ad-file", required=True, help="Path to h5ad file")
     parser.add_argument("--model-dir", default=None, help="Path to Geneformer model directory")
-    parser.add_argument("--output", default="data/processed/gene_embeddings.pt", help="Path to save embeddings")
+    parser.add_argument("--output", default=str(PROCESSED_DIR / "gene_embeddings.pt"), help="Path to save embeddings")
     parser.add_argument("--gene-list", default=None, help="Optional file with genes to keep in output")
     parser.add_argument("--batch-size", type=int, default=8, help="Forward batch size")
     parser.add_argument("--max-cells", type=int, default=2000, help="Total cells to process (global cap)")
