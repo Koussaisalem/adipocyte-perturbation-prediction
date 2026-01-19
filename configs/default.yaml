@@ -23,18 +23,16 @@ data:
   min_cells_per_perturbation: 50
   # Optional cell downsampling to avoid OOM on small machines
   max_cells: 6000
+  # Fraction of perturbations to allocate to validation when val_genes is empty
+  val_fraction: 0.05
   
   # PCA for flow matching
   pca_components: 300
   pca_fit_on: NC  # Fit PCA on NC cells only
   
   # Train/val split
-  val_genes:
-    - ZBTB20
-    - FOXC1
-    - SOX6
-    - CHD4
-    - TRIM5
+  # Leave empty to let validation perturbations be chosen randomly from available data
+  val_genes: []
 
 # Knowledge Graph
 kg:
@@ -145,7 +143,7 @@ training:
   # Checkpointing
   save_top_k: 3
   monitor: val/mmd
-  mode: min
+  mode: max  # Higher MMD = more distributional shift (desired for perturbations)
   
   # Early stopping
   early_stopping: true

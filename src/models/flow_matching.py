@@ -191,8 +191,9 @@ class FlowMatchingDecoder(nn.Module):
         self.velocity_model = velocity_model
         self.ode_solver = ode_solver
         self.ode_steps = ode_steps
-        self.rtol = rtol
-        self.atol = atol
+        # Explicitly convert to float in case they come from YAML as strings
+        self.rtol = float(rtol)
+        self.atol = float(atol)
     
     def forward(
         self,

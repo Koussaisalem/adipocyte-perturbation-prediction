@@ -68,12 +68,10 @@ class ModelCheckpoint:
         is_best: bool = False,
     ):
         """Save a checkpoint."""
-        # Format filename
-        filename = self.filename.format(
-            epoch=epoch,
-            val_mmd=metrics.get('val/mmd', 0.0),
-            **{k.replace('/', '_'): v for k, v in metrics.items()}
-        )
+        # Format filename - convert metric names for format string
+        format_metrics = {k.replace('/', '_'): v for k, v in metrics.items()}
+        format_metrics['epoch'] = epoch
+        filename = self.filename.format(**format_metrics)
         
         filepath = self.dirpath / f"{filename}.ckpt"
         
@@ -243,8 +241,9 @@ class LearningRateScheduler:
         self.mode = mode
         self.warmup_epochs = warmup_epochs
         self.total_epochs = total_epochs
-        self.min_lr = min_lr
-        self.initial_lr = initial_lr
+        # Explicitly convert to float in case they come from YAML as strings
+        self.min_lr = float(min_lr)
+        self.initial_lr = float(initial_lr)
     
     def get_lr(self, epoch: int) -> float:
         """Get learning rate for current epoch."""

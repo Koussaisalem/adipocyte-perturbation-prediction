@@ -253,6 +253,8 @@ class Trainer:
         
         for batch in tqdm(self.val_loader, desc="Validation"):
             # Move to device
+            x0 = batch['x0'].to(self.config.device)
+            x1 = batch['x1'].to(self.config.device)
             xt = batch['xt'].to(self.config.device)
             t = batch['t'].to(self.config.device)
             velocity = batch['velocity'].to(self.config.device)
@@ -260,15 +262,36 @@ class Trainer:
             if 'z_p' in batch:
                 z_p = batch['z_p'].to(self.config.device)
             else:
-                raise NotImplementedError("Perturbation encoding not implemented")
+                embeds = []
+                if not self.perturbation_embeddings:
+                    raise NotImplementedError("Perturbation encoding not implemented")
+                for pert_name in batch['perturbation']:
+                    vec = self.perturbation_embeddings.get(pert_name)
+                    if vec is None:
+                        vec = torch.zeros(self.perturbation_dim, device=self.config.device)
+                    else:
+                        vec = vec.to(self.config.device)
+                        if vec.dim() > 1:
+                            vec = vec.flatten()
+                        if vec.shape[0] > self.perturbation_dim:
+                            vec = vec[:self.perturbation_dim]
+                        elif vec.shape[0] < self.perturbation_dim:
+                            vec = torch.nn.functional.pad(vec, (0, self.perturbation_dim - vec.shape[0]))
+                    embeds.append(vec)
+                z_p = torch.stack(embeds)
             
             # Predict velocity
             pred_velocity = self.model.predict_velocity(xt, t, z_p)
             
-            # Compute loss
+            # Generate full trajectories for MMD computation
+            predicted_cells = self.model.generate_cells(x0, z_p)
+            
+            # Compute loss with MMD
             loss, loss_dict = self.loss_fn(
                 predicted_velocity=pred_velocity,
                 target_velocity=velocity,
+                predicted_cells=predicted_cells,
+                target_cells=x1,
                 compute_mmd=True,  # Always compute MMD in validation
                 compute_pearson=False,
             )
@@ -281,12 +304,12 @@ class Trainer:
             n_batches += 1
         
         # Average losses
-            if n_batches == 0:
-                logger.warning("Validation loader is empty; skipping validation metrics.")
-                return {k: 0.0 for k in val_losses}
+        if n_batches == 0:
+            logger.warning("Validation loader is empty; skipping validation metrics.")
+            return {k: 0.0 for k in val_losses}
 
-            for key in val_losses:
-                val_losses[key] /= n_batches
+        for key in val_losses:
+            val_losses[key] /= n_batches
         
         return val_losses
     
@@ -325,8 +348,15 @@ class Trainer:
                     for key, value in val_metrics.items():
                         self.logger_obj.log({f"val/{key}": value}, step=epoch)
                 
-                # Callbacks
+                # Callbacks - add aliases for compatibility
                 metrics_dict = {f"val/{k}": v for k, v in val_metrics.items()}
+                # Add shorthand aliases (val/mmd for val/mmd_loss, etc.)
+                if 'val/mmd_loss' in metrics_dict:
+                    metrics_dict['val/mmd'] = metrics_dict['val/mmd_loss']
+                if 'val/cfm_loss' in metrics_dict:
+                    metrics_dict['val/cfm'] = metrics_dict['val/cfm_loss']
+                if 'val/proportion_loss' in metrics_dict:
+                    metrics_dict['val/proportion'] = metrics_dict['val/proportion_loss']
                 
                 for callback in self.callbacks:
                     if hasattr(callback, 'on_validation_end'):

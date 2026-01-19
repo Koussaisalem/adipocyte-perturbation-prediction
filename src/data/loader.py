@@ -261,6 +261,8 @@ def prepare_training_data(
     proportions: pd.DataFrame,
     val_genes: list[str],
     pca_components: int = 500,
+    seed: int = 42,
+    val_fraction: float = 0.05,
 ) -> dict:
     """
     Prepare training data with PCA transformation.
@@ -295,8 +297,21 @@ def prepare_training_data(
     # Transform all cells
     X_pca = pca.transform(X)
     
+    # Determine validation perturbations
+    rng = np.random.default_rng(seed)
+    all_perts = [g for g in proportions.index if g != "NC"]
+    perts_with_cells = [g for g in all_perts if (adata.obs["gene"] == g).any()]
+
+    if val_genes:
+        # Keep only perturbations that actually have cells
+        val_genes = [g for g in val_genes if g in perts_with_cells]
+    else:
+        n_val = max(1, int(len(perts_with_cells) * val_fraction))
+        n_val = min(n_val, 10)  # cap to keep validation small
+        val_genes = rng.choice(perts_with_cells, size=n_val, replace=False).tolist()
+
     # Split by training vs validation perturbations
-    train_genes = [g for g in proportions.index if g not in val_genes and g != "NC"]
+    train_genes = [g for g in perts_with_cells if g not in val_genes]
     
     # Get perturbation data
     training_data = {

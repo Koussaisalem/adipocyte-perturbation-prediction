@@ -113,8 +113,10 @@ def main():
     training_data = prepare_training_data(
         adata,
         proportions,
-        val_genes=config["data"]["val_genes"],
+        val_genes=config["data"].get("val_genes", []),
         pca_components=config["data"]["pca_components"],
+        seed=config["training"].get("seed", 42),
+        val_fraction=config["data"].get("val_fraction", 0.05),
     )
     
     # Step 2: Load knowledge graph
