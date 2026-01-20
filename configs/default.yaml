@@ -31,7 +31,8 @@ data:
   pca_fit_on: NC  # Fit PCA on NC cells only
   
   # Train/val split
-  # Leave empty to let validation perturbations be chosen randomly from available data
+  # For zero-shot challenge: validation genes have NO cells in dataset
+  # Leave empty to randomly select from measured perturbations for monitoring training
   val_genes: []
 
 # Knowledge Graph
@@ -143,7 +144,7 @@ training:
   # Checkpointing
   save_top_k: 3
   monitor: val/mmd
-  mode: max  # Higher MMD = more distributional shift (desired for perturbations)
+  mode: min  # Lower MMD = better match to ground truth distribution
   
   # Early stopping
   early_stopping: true

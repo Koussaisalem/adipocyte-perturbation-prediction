@@ -1,0 +1,174 @@
+# Default configuration for Adipocyte Perturbation Prediction
+
+# Paths
+paths:
+  data_dir: data/
+  raw_dir: data/raw/
+  processed_dir: data/processed/
+  kg_dir: data/kg/
+  checkpoint_dir: checkpoints/
+  
+  # Challenge files
+  h5ad_file: obesity_challenge_1.h5ad
+  signature_genes: signature_genes.csv
+  program_proportions: program_proportion.csv
+  program_proportions_gtruth: program_proportion_local_gtruth.csv
+  predict_perturbations: predict_perturbations.txt
+  gene_to_predict: gene_to_predict.txt
+
+# Data preprocessing
+data:
+  # Cell program assignment
+  program_score_method: mean_zscore  # mean_zscore, mean_raw, ssgsea
+  min_cells_per_perturbation: 50
+  # Optional cell downsampling to avoid OOM on small machines
+  max_cells: 6000
+  # Fraction of perturbations to allocate to validation when val_genes is empty
+  val_fraction: 0.05
+  
+  # PCA for flow matching
+  pca_components: 300
+  pca_fit_on: NC  # Fit PCA on NC cells only
+  
+  # Train/val split
+  # For zero-shot challenge: validation genes have NO cells in dataset
+  # Leave empty to randomly select from measured perturbations for monitoring training
+  val_genes: []
+
+# Knowledge Graph
+kg:
+  # DoRothEA / CollecTRI
+  dorothea_levels: [A, B]  # Confidence levels to include
+  collectri_organism: human
+  
+  # STRING
+  string_version: "12.0"
+  string_species: 9606  # Human
+  string_score_threshold: 700
+  string_local: true  # Use local download vs API
+  
+  # Gene Ontology
+  go_terms:
+    - GO:0045444  # fat cell differentiation
+    - GO:0006629  # lipid metabolic process
+    - GO:0045598  # regulation of fat cell differentiation
+  go_min_shared_terms: 3
+
+# Model architecture
+model:
+  # Gene embeddings
+  embedding_source: geneformer  # geneformer, esm2, random
+  embedding_dim: 512
+  
+  # GATv2 Encoder
+  gat_layers: 3
+  gat_heads: 8
+  gat_hidden_dim: 128
+  gat_dropout: 0.1
+  gat_edge_types:
+    - tf_activates
+    - tf_represses
+    - interacts_with
+    - co_functional
+  
+  # Perturbation embedding
+  perturbation_dim: 256
+  perturbation_aggregation: attention  # attention, mean, max
+
+# Flow Matching
+flow_matching:
+  # Architecture
+  hidden_dims: [1024, 512, 512]
+  time_embedding_dim: 64
+  activation: silu
+  # PCA dimension used for flow input (matches data.pca_components)
+  pca_components: 300
+  
+  # ODE integration
+  ode_solver: dopri5  # dopri5, euler, rk4
+  ode_steps: 20
+  ode_rtol: 1e-5
+  ode_atol: 1e-5
+  
+  # Sampling
+  n_cells_per_perturbation: 100
+
+# Proportion Head
+proportion_head:
+  hidden_dims: [128, 64]
+  n_programs: 4  # pre_adipo, adipo, lipo, other
+  predict_ratio: true  # Also predict lipo_adipo ratio
+
+# Loss functions
+loss:
+  # CFM loss weight
+  cfm_weight: 1.0
+  
+  # MMD loss
+  mmd_weight: 0.1
+  mmd_bandwidths: [581.5, 1163.0, 2326.0, 4652.0, 9304.0]
+  mmd_frequency: 10  # Compute every N steps
+  
+  # Proportion loss
+  proportion_weight: 0.5
+  proportion_loss: l1  # l1, l2, huber
+  state_weight: 0.75
+  ratio_weight: 0.25
+  
+  # Pearson delta
+  pearson_weight: 0.05
+
+# Training
+training:
+  # Optimization
+  optimizer: adamw
+  lr: 1e-4
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+  
+  # Schedule
+  scheduler: cosine_warmup
+  warmup_epochs: 5
+  min_lr: 1e-6
+  
+  # Training loop
+  epochs: 100
+  batch_size: 64
+  gradient_clip: 1.0
+  accumulate_grad_batches: 1
+  
+  # Validation
+  val_frequency: 1  # Validate every N epochs
+  n_val_samples: 100  # Cells to sample for validation MMD
+  
+  # Checkpointing
+  save_top_k: 3
+  monitor: val/mmd
+  mode: min  # Lower MMD = better match to ground truth distribution
+  
+  # Early stopping
+  early_stopping: true
+  patience: 15
+  
+  # Reproducibility
+  seed: 42
+
+# Inference
+inference:
+  batch_size: 128
+  n_cells: 100
+  checkpoint: best.ckpt
+
+# Experiment tracking
+experiment:
+  name: default
+  project: adipocyte-perturbation
+  tags: []
+  log_every_n_steps: 50
+  
+# Hardware
+hardware:
+  accelerator: auto  # auto, gpu, cpu
+  devices: 1
+  precision: 16-mixed  # 32, 16-mixed, bf16-mixed
+  num_workers: 4
